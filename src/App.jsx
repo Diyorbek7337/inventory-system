@@ -23,11 +23,11 @@ function App() {
   const [users, setUsers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Session davomiyligi (30 daqiqa = 1800000 ms)
-  const SESSION_TIMEOUT = 15 * 60 * 1000; // 30 daqiqa
+  const SESSION_TIMEOUT = 30 * 60 * 1000;
 
-  // LocalStorage'dan sessionni yuklash
+  // Session yuklash
   useEffect(() => {
     const savedSession = localStorage.getItem('userSession');
     if (savedSession) {
@@ -35,16 +35,13 @@ function App() {
         const session = JSON.parse(savedSession);
         const now = new Date().getTime();
         
-        // Session vaqti tekshirish
         if (now - session.loginTime < SESSION_TIMEOUT) {
           setCurrentUser(session.user);
-          // Login vaqtini yangilash (har safar refresh qilganda)
           localStorage.setItem('userSession', JSON.stringify({
             user: session.user,
             loginTime: now
           }));
         } else {
-          // Session muddati tugagan
           localStorage.removeItem('userSession');
           toast.info('Sessiya muddati tugadi. Qayta kiring.');
         }
@@ -56,7 +53,7 @@ function App() {
     setLoading(false);
   }, []);
 
-  // Auto logout (30 daqiqadan keyin)
+  // Auto logout
   useEffect(() => {
     if (currentUser) {
       const checkSession = setInterval(() => {
@@ -70,13 +67,13 @@ function App() {
             toast.warning('30 daqiqa faoliyat yo\'qligi sababli tizimdan chiqarildingiz.');
           }
         }
-      }, 60000); // Har 1 daqiqada tekshirish
+      }, 60000);
 
       return () => clearInterval(checkSession);
     }
   }, [currentUser]);
 
-  // User activity tracker (har qanday harakatda sessionni yangilash)
+  // Activity tracker
   useEffect(() => {
     const updateActivity = () => {
       if (currentUser) {
@@ -85,37 +82,41 @@ function App() {
           const session = JSON.parse(savedSession);
           localStorage.setItem('userSession', JSON.stringify({
             user: session.user,
-            loginTime: new Date().getTime() // Vaqtni yangilash
+            loginTime: new Date().getTime()
           }));
         }
       }
     };
 
-    // Mouse, keyboard, scroll harakatlarini kuzatish
-    window.addEventListener('mousemove', updateActivity);
-    window.addEventListener('keypress', updateActivity);
-    window.addEventListener('click', updateActivity);
-    window.addEventListener('scroll', updateActivity);
+    const throttledUpdate = throttle(updateActivity, 5000); // Har 5 sekundda 1 marta
+
+    window.addEventListener('mousemove', throttledUpdate);
+    window.addEventListener('keypress', throttledUpdate);
+    window.addEventListener('click', throttledUpdate);
 
     return () => {
-      window.removeEventListener('mousemove', updateActivity);
-      window.removeEventListener('keypress', updateActivity);
-      window.removeEventListener('click', updateActivity);
-      window.removeEventListener('scroll', updateActivity);
+      window.removeEventListener('mousemove', throttledUpdate);
+      window.removeEventListener('keypress', throttledUpdate);
+      window.removeEventListener('click', throttledUpdate);
     };
   }, [currentUser]);
 
-  const loadData = async () => {
-    setLoading(true);
+   const loadData = async () => {
     try {
-      const productsSnap = await getDocs(collection(db, 'products'));
+      // Parallel yuklash (tezroq)
+      const [productsSnap, transSnap, usersSnap, categoriesSnap] = await Promise.all([
+        getDocs(collection(db, 'products')),
+        getDocs(collection(db, 'transactions')),
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'categories'))
+      ]);
+
       const productsData = productsSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setProducts(productsData);
 
-      const transSnap = await getDocs(collection(db, 'transactions'));
       const transData = transSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
@@ -123,35 +124,35 @@ function App() {
       }));
       setTransactions(transData);
 
-      const usersSnap = await getDocs(collection(db, 'users'));
       const usersData = usersSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setUsers(usersData);
 
-      const categoriesSnap = await getDocs(collection(db, 'categories'));
       const categoriesData = categoriesSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setCategories(categoriesData);
+
+      setDataLoaded(true);
     } catch (error) {
       console.error('Ma\'lumotlarni yuklashda xato:', error);
       toast.error('Ma\'lumotlar yuklanmadi!');
     }
-    setLoading(false);
   };
-
+  // FAQAT bir marta ma'lumotlarni yuklash
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !dataLoaded) {
       loadData();
     }
   }, [currentUser]);
 
+ 
+
   const handleLogin = (user) => {
     setCurrentUser(user);
-    // Session saqlash
     localStorage.setItem('userSession', JSON.stringify({
       user: user,
       loginTime: new Date().getTime()
@@ -160,6 +161,7 @@ function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setDataLoaded(false);
     localStorage.removeItem('userSession');
     toast.info('Tizimdan chiqildi');
   };
@@ -198,12 +200,11 @@ function App() {
     setCategories(categories.filter(c => c.id !== categoryId));
   };
 
-  // Birinchi loading (session tekshirish)
   if (loading && !currentUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="w-16 h-16 mx-auto mb-4 border-b-2 border-blue-600 rounded-full animate-spin"></div>
           <p className="text-gray-600">Yuklanmoqda...</p>
         </div>
       </div>
@@ -215,7 +216,7 @@ function App() {
       <>
         <ToastContainer
           position="top-right"
-          autoClose={2000}
+          autoClose={3000}
           hideProgressBar={false}
           newestOnTop={false}
           closeOnClick
@@ -230,22 +231,11 @@ function App() {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Ma'lumotlar yuklanmoqda...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
       <ToastContainer
         position="top-right"
-        autoClose={2000}
+        autoClose={3000}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick
@@ -265,61 +255,83 @@ function App() {
         />
 
         <div className="flex-1 overflow-y-auto">
-          {activeMenu === 'dashboard' && (
-            <Dashboard products={products} transactions={transactions} />
-          )}
+          {!dataLoaded ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-4 border-b-2 border-blue-600 rounded-full animate-spin"></div>
+                <p className="text-gray-600">Ma'lumotlar yuklanmoqda...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {activeMenu === 'dashboard' && (
+                <Dashboard products={products} transactions={transactions} />
+              )}
 
-          {activeMenu === 'income' && (
-            <Income 
-              products={products}
-              categories={categories}
-              onAddProduct={addProduct}
-              onUpdateProduct={updateProduct}
-              onAddTransaction={addTransaction}
-              onAddCategory={addCategory}
-            />
-          )}
+              {activeMenu === 'income' && (
+                <Income 
+                  products={products}
+                  categories={categories}
+                  onAddProduct={addProduct}
+                  onUpdateProduct={updateProduct}
+                  onAddTransaction={addTransaction}
+                  onAddCategory={addCategory}
+                />
+              )}
 
-          {activeMenu === 'outcome' && (
-            <Outcome 
-              products={products}
-              onUpdateProduct={updateProduct}
-              onAddTransaction={addTransaction}
-            />
-          )}
+              {activeMenu === 'outcome' && (
+                <Outcome 
+                  products={products}
+                  onUpdateProduct={updateProduct}
+                  onAddTransaction={addTransaction}
+                />
+              )}
 
-          {activeMenu === 'products' && (
-            <ProductList 
-              products={products}
-              categories={categories}
-              onDeleteProduct={deleteProduct}
-              onUpdateProduct={updateProduct}
-            />
-          )}
+              {activeMenu === 'products' && (
+                <ProductList 
+                  products={products}
+                  categories={categories}
+                  onDeleteProduct={deleteProduct}
+                  onUpdateProduct={updateProduct}
+                />
+              )}
 
-          {activeMenu === 'sales' && (
-            <Sales 
-              transactions={transactions}
-              products={products}
-            />
-          )}
+              {activeMenu === 'sales' && (
+                <Sales 
+                  transactions={transactions}
+                  products={products}
+                />
+              )}
 
-          {activeMenu === 'statistics' && (
-            <Statistics products={products} transactions={transactions} />
-          )}
+              {activeMenu === 'statistics' && (
+                <Statistics products={products} transactions={transactions} />
+              )}
 
-          {activeMenu === 'users' && (
-            <Users 
-              users={users} 
-              currentUser={currentUser}
-              onAddUser={addUser}
-              onDeleteUser={deleteUser}
-            />
+              {activeMenu === 'users' && (
+                <Users 
+                  users={users} 
+                  currentUser={currentUser}
+                  onAddUser={addUser}
+                  onDeleteUser={deleteUser}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
     </>
   );
+}
+
+// Throttle funksiyasi (tez-tez chaqirilishini cheklash)
+function throttle(func, delay) {
+  let lastCall = 0;
+  return function (...args) {
+    const now = new Date().getTime();
+    if (now - lastCall < delay) return;
+    lastCall = now;
+    return func(...args);
+  };
 }
 
 export default App;

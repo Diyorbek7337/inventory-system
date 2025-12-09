@@ -76,35 +76,43 @@ const Statistics = ({ products, transactions }) => {
     }));
   };
 
-  const getMonthlyData = () => {
-    const monthlyStats = {};
+const getMonthlyData = () => {
+  const monthlyStats = {};
 
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const monthKey = date.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
-      monthlyStats[monthKey] = { income: 0, outcome: 0 };
-    }
+  // 12 oy uchun boshlang'ich kalitlarni MM.YYYY shaklida yarating
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    const month = (`0${date.getMonth() + 1}`).slice(-2);
+    const year = date.getFullYear();
+    const monthKey = `${month}.${year}`; // 04.2025 shakli
 
-    transactions.forEach(t => {
-      const date = new Date(t.date);
-      const monthKey = date.toLocaleDateString('uz-UZ', { month: 'short', year: 'numeric' });
-      
-      if (monthlyStats[monthKey]) {
-        if (t.type === 'kirim') {
-          monthlyStats[monthKey].income += t.quantity * t.price;
-        } else {
-          monthlyStats[monthKey].outcome += t.paidAmount || (t.quantity * t.price);
-        }
+    monthlyStats[monthKey] = { income: 0, outcome: 0 };
+  }
+
+  // Tranzaksiyalarni oylarga yig'ing (agar tranzaksiya o'sha 12 oy ichida bo'lsa)
+  transactions.forEach(t => {
+    const date = new Date(t.date);
+    const month = (`0${date.getMonth() + 1}`).slice(-2);
+    const year = date.getFullYear();
+    const monthKey = `${month}.${year}`;
+
+    if (monthlyStats[monthKey]) {
+      if (t.type === 'kirim') {
+        monthlyStats[monthKey].income += t.quantity * t.price;
+      } else {
+        monthlyStats[monthKey].outcome += t.paidAmount || (t.quantity * t.price);
       }
-    });
+    }
+  });
 
-    return Object.entries(monthlyStats).map(([month, data]) => ({
-      month,
-      kirim: data.income / 1000000,
-      chiqim: data.outcome / 1000000
-    }));
-  };
+  // Object -> array
+  return Object.entries(monthlyStats).map(([month, data]) => ({
+    month,
+    kirim: data.income / 1000000,
+    chiqim: data.outcome / 1000000
+  }));
+};
 
   const getDebtors = () => {
     const debtors = {};
@@ -134,7 +142,7 @@ const Statistics = ({ products, transactions }) => {
   return (
     <div className="p-6 space-y-6">
       {/* Davr tanlash */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="p-6 bg-white rounded-lg shadow">
         <div className="flex items-center gap-2 mb-4">
           <Calendar className="w-5 h-5 text-gray-600" />
           <h3 className="text-lg font-bold text-gray-800">Davr tanlash:</h3>
@@ -162,42 +170,42 @@ const Statistics = ({ products, transactions }) => {
       </div>
 
       {/* Statistika kartalari */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow p-6 text-white">
-          <div className="flex justify-between items-center">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="p-6 text-white rounded-lg shadow bg-gradient-to-br from-green-500 to-green-600">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Kirim</p>
-              <p className="text-3xl font-bold mt-1">{(stats.income / 1000000).toFixed(1)}M</p>
+              <p className="text-sm text-green-100">Kirim</p>
+              <p className="mt-1 text-3xl font-bold">{(stats.income / 1000000).toFixed(1)}M</p>
             </div>
             <TrendingUp className="w-12 h-12 text-green-200" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
-          <div className="flex justify-between items-center">
+        <div className="p-6 text-white rounded-lg shadow bg-gradient-to-br from-blue-500 to-blue-600">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Chiqim (Savdo)</p>
-              <p className="text-3xl font-bold mt-1">{(stats.outcome / 1000000).toFixed(1)}M</p>
+              <p className="text-sm text-blue-100">Chiqim (Savdo)</p>
+              <p className="mt-1 text-3xl font-bold">{(stats.outcome / 1000000).toFixed(1)}M</p>
             </div>
             <DollarSign className="w-12 h-12 text-blue-200" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
-          <div className="flex justify-between items-center">
+        <div className="p-6 text-white rounded-lg shadow bg-gradient-to-br from-purple-500 to-purple-600">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Foyda</p>
-              <p className="text-3xl font-bold mt-1">{(stats.profit / 1000000).toFixed(1)}M</p>
+              <p className="text-sm text-purple-100">Foyda</p>
+              <p className="mt-1 text-3xl font-bold">{(stats.profit / 1000000).toFixed(1)}M</p>
             </div>
             <TrendingUp className="w-12 h-12 text-purple-200" />
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow p-6 text-white">
-          <div className="flex justify-between items-center">
+        <div className="p-6 text-white rounded-lg shadow bg-gradient-to-br from-red-500 to-red-600">
+          <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-100 text-sm">Qarz</p>
-              <p className="text-3xl font-bold mt-1">{(stats.debt / 1000000).toFixed(1)}M</p>
+              <p className="text-sm text-red-100">Qarz</p>
+              <p className="mt-1 text-3xl font-bold">{(stats.debt / 1000000).toFixed(1)}M</p>
             </div>
             <Users className="w-12 h-12 text-red-200" />
           </div>
@@ -205,10 +213,10 @@ const Statistics = ({ products, transactions }) => {
       </div>
 
       {/* Grafiklar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Oylik statistika */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">12 oylik statistika (mln so'm)</h3>
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h3 className="mb-4 text-lg font-bold text-gray-800">12 oylik statistika (mln so'm)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -223,8 +231,8 @@ const Statistics = ({ products, transactions }) => {
         </div>
 
         {/* Kategoriya bo'yicha */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Kategoriya bo'yicha savdo (mln so'm)</h3>
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h3 className="mb-4 text-lg font-bold text-gray-800">Kategoriya bo'yicha savdo (mln so'm)</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -249,25 +257,25 @@ const Statistics = ({ products, transactions }) => {
 
       {/* Qarzdorlar ro'yxati */}
       {debtors.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Qarzdorlar ro'yxati</h3>
+        <div className="p-6 bg-white rounded-lg shadow">
+          <h3 className="mb-4 text-lg font-bold text-gray-800">Qarzdorlar ro'yxati</h3>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mijoz</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Qarz</th>
+                  <th className="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">#</th>
+                  <th className="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">Mijoz</th>
+                  <th className="px-6 py-3 text-xs font-medium text-left text-gray-500 uppercase">Qarz</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {debtors.map((debtor, index) => (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{index + 1}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap">
                       {debtor.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
+                    <td className="px-6 py-4 text-sm font-bold text-red-600 whitespace-nowrap">
                       {debtor.debt.toLocaleString()} so'm
                     </td>
                   </tr>

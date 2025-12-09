@@ -90,7 +90,7 @@ const Sales = ({ transactions, products }) => {
       </head>
       <body>
         <div class="header">
-          <h2>DO'KON NOMI</h2>
+          <h2>Inventory shop</h2>
           <p>Sana: ${new Date(sale.date).toLocaleString('uz-UZ')}</p>
           <p>Chek: #${sale.saleId}</p>
           ${sale.customerName !== 'Naqd' ? `<p>Mijoz: ${sale.customerName}</p>` : ''}
@@ -140,25 +140,25 @@ const Sales = ({ transactions, products }) => {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Savdo cheklari</h2>
         <div className="text-gray-600">
-          <Receipt className="w-5 h-5 inline mr-2" />
+          <Receipt className="inline w-5 h-5 mr-2" />
           Jami: <span className="font-bold">{filteredSales.length}</span> ta
         </div>
       </div>
 
       {/* Filtrlar */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="p-4 mb-6 bg-white rounded-lg shadow">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="relative">
-            <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+            <Search className="absolute w-5 h-5 text-gray-400 left-3 top-3" />
             <input
               type="text"
               placeholder="Mijoz yoki mahsulot qidirish..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full py-2 pl-10 pr-4 border rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -184,9 +184,9 @@ const Sales = ({ transactions, products }) => {
       </div>
 
       {/* Savdolar ro'yxati */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {filteredSales.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-gray-500">
+          <div className="py-12 text-center text-gray-500 col-span-full">
             <Receipt className="w-16 h-16 mx-auto mb-4 text-gray-300" />
             <p>Savdo topilmadi</p>
           </div>
@@ -194,13 +194,13 @@ const Sales = ({ transactions, products }) => {
           filteredSales.map(sale => (
             <div
               key={sale.saleId}
-              className="bg-white rounded-lg shadow hover:shadow-lg transition p-6 cursor-pointer"
+              className="p-6 transition bg-white rounded-lg shadow cursor-pointer hover:shadow-lg"
               onClick={() => setSelectedSale(sale)}
             >
-              <div className="flex justify-between items-start mb-4">
+              <div className="flex items-start justify-between mb-4">
                 <div>
                   <p className="text-xs text-gray-500">Chek #{sale.saleId.slice(-8)}</p>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="mt-1 text-sm text-gray-600">
                     {new Date(sale.date).toLocaleString('uz-UZ', {
                       day: 'numeric',
                       month: 'short',
@@ -212,7 +212,7 @@ const Sales = ({ transactions, products }) => {
                 <Receipt className="w-8 h-8 text-blue-500" />
               </div>
 
-              <div className="space-y-2 mb-4">
+              <div className="mb-4 space-y-2">
                 <div className="flex items-center text-sm text-gray-600">
                   <User className="w-4 h-4 mr-2" />
                   <span>{sale.customerName}</span>
@@ -223,7 +223,7 @@ const Sales = ({ transactions, products }) => {
                 </div>
               </div>
 
-              <div className="border-t pt-4 space-y-2">
+              <div className="pt-4 space-y-2 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Jami:</span>
                   <span className="font-bold">{sale.totalAmount.toLocaleString()} so'm</span>
@@ -252,12 +252,12 @@ const Sales = ({ transactions, products }) => {
 
       {/* Chek detallari modal */}
       {selectedSale && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-start mb-6">
+            <div className="flex items-start justify-between mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-gray-800">Chek #{selectedSale.saleId.slice(-8)}</h3>
-                <p className="text-gray-600 mt-1">
+                <p className="mt-1 text-gray-600">
                   {new Date(selectedSale.date).toLocaleString('uz-UZ')}
                 </p>
               </div>
@@ -269,7 +269,7 @@ const Sales = ({ transactions, products }) => {
               </button>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="p-4 mb-6 rounded-lg bg-gray-50">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Mijoz</p>
@@ -289,10 +289,10 @@ const Sales = ({ transactions, products }) => {
             </div>
 
             <div className="mb-6">
-              <h4 className="font-semibold text-gray-800 mb-3">Mahsulotlar:</h4>
+              <h4 className="mb-3 font-semibold text-gray-800">Mahsulotlar:</h4>
               <div className="space-y-2">
                 {selectedSale.items.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{item.productName}</p>
                       <p className="text-sm text-gray-600">
@@ -307,7 +307,7 @@ const Sales = ({ transactions, products }) => {
               </div>
             </div>
 
-            <div className="border-t pt-4 space-y-3">
+            <div className="pt-4 space-y-3 border-t">
               <div className="flex justify-between text-lg">
                 <span className="text-gray-600">Jami:</span>
                 <span className="font-bold">{selectedSale.totalAmount.toLocaleString()} so'm</span>
@@ -327,13 +327,13 @@ const Sales = ({ transactions, products }) => {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setSelectedSale(null)}
-                className="flex-1 bg-gray-200 text-gray-700 rounded-lg px-4 py-2 hover:bg-gray-300 font-medium"
+                className="flex-1 px-4 py-2 font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
               >
                 Yopish
               </button>
               <button
                 onClick={() => printReceipt(selectedSale)}
-                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 font-medium flex items-center justify-center gap-2"
+                className="flex items-center justify-center flex-1 gap-2 px-4 py-2 font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
               >
                 <Receipt className="w-5 h-5" />
                 Chop etish
