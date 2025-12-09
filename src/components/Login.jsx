@@ -2,24 +2,35 @@ import React, { useState } from 'react';
 import { Package, Lock, User } from 'lucide-react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'react-toastify';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    
+    if (!username.trim() || !password) {
+      toast.error('Login va parolni kiriting!');
+      return;
+    }
+
     setLoading(true);
+    const loadingToast = toast.loading('Tizimga kirish...');
 
     try {
       const q = query(collection(db, 'users'), where('username', '==', username));
       const querySnapshot = await getDocs(q);
       
       if (querySnapshot.empty) {
-        setError('Login yoki parol noto\'g\'ri!');
+        toast.update(loadingToast, {
+          render: '❌ Login yoki parol noto\'g\'ri!',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
         setLoading(false);
         return;
       }
@@ -28,13 +39,31 @@ const Login = ({ onLogin }) => {
       const userData = userDoc.data();
       
       if (password === userData.password) {
-        onLogin({ id: userDoc.id, ...userData });
+        toast.update(loadingToast, {
+          render: `✅ Xush kelibsiz, ${userData.name}!`,
+          type: 'success',
+          isLoading: false,
+          autoClose: 2000
+        });
+        setTimeout(() => {
+          onLogin({ id: userDoc.id, ...userData });
+        }, 500);
       } else {
-        setError('Login yoki parol noto\'g\'ri!');
+        toast.update(loadingToast, {
+          render: '❌ Login yoki parol noto\'g\'ri!',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
       }
     } catch (error) {
       console.error('Login xatosi:', error);
-      setError('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi. Qayta urinib ko\'ring.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
     }
     
     setLoading(false);
@@ -82,12 +111,6 @@ const Login = ({ onLogin }) => {
             </div>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
           <button
             type="submit"
             disabled={loading}
@@ -96,6 +119,11 @@ const Login = ({ onLogin }) => {
             {loading ? 'Kirish...' : 'Kirish'}
           </button>
         </form>
+
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-600 font-semibold mb-2">Demo hisob:</p>
+          <p className="text-xs text-gray-700">👤 admin / admin123</p>
+        </div>
       </div>
     </div>
   );

@@ -2,61 +2,90 @@ import React, { useState } from 'react';
 import { User, Plus, Trash2, Shield } from 'lucide-react';
 import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'react-toastify';
 
-const Users = ({ users, currentUser, onUpdate }) => {
+const Users = ({ users, currentUser, onAddUser, onDeleteUser }) => {
   const [showModal, setShowModal] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '', name: '', role: 'user' });
+  const [saving, setSaving] = useState(false);
 
   const addUser = async () => {
     if (!newUser.username.trim() || !newUser.password || !newUser.name.trim()) {
-      alert('Barcha maydonlarni to\'ldiring!');
+      toast.error('Barcha maydonlarni to\'ldiring!');
       return;
     }
 
     if (newUser.password.length < 6) {
-      alert('Parol kamida 6 belgidan iborat bo\'lishi kerak!');
+      toast.error('Parol kamida 6 belgidan iborat bo\'lishi kerak!');
       return;
     }
 
-    // Username unikal ekanligini tekshirish
     if (users.some(u => u.username === newUser.username.trim())) {
-      alert('Bu login band!');
+      toast.error('Bu login band!');
       return;
     }
+
+    setSaving(true);
+    const loadingToast = toast.loading('Foydalanuvchi qo\'shilmoqda...');
 
     try {
-      await addDoc(collection(db, 'users'), {
+      const userData = {
         username: newUser.username.trim(),
         password: newUser.password,
         name: newUser.name.trim(),
         role: newUser.role,
         createdAt: new Date()
-      });
+      };
+
+      const docRef = await addDoc(collection(db, 'users'), userData);
+      onAddUser({ id: docRef.id, ...userData });
 
       setNewUser({ username: '', password: '', name: '', role: 'user' });
       setShowModal(false);
-      onUpdate();
-      alert('Foydalanuvchi qo\'shildi!');
+      
+      toast.update(loadingToast, {
+        render: '✅ Foydalanuvchi qo\'shildi!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Xato:', error);
-      alert('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
     }
+    setSaving(false);
   };
 
   const deleteUser = async (userId) => {
     if (userId === currentUser.id) {
-      alert('O\'zingizni o\'chira olmaysiz!');
+      toast.error('O\'zingizni o\'chira olmaysiz!');
       return;
     }
 
     if (window.confirm('Foydalanuvchini o\'chirmoqchimisiz?')) {
+      const loadingToast = toast.loading('O\'chirilmoqda...');
       try {
         await deleteDoc(doc(db, 'users', userId));
-        onUpdate();
-        alert('O\'chirildi!');
+        onDeleteUser(userId);
+        toast.update(loadingToast, {
+          render: '✅ Foydalanuvchi o\'chirildi!',
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000
+        });
       } catch (error) {
         console.error('Xato:', error);
-        alert('Xatolik yuz berdi!');
+        toast.update(loadingToast, {
+          render: '❌ Xatolik yuz berdi!',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
       }
     }
   };
@@ -74,7 +103,6 @@ const Users = ({ users, currentUser, onUpdate }) => {
         </button>
       </div>
 
-      {/* Foydalanuvchilar ro'yxati */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {users.map(user => (
           <div
@@ -88,7 +116,7 @@ const Users = ({ users, currentUser, onUpdate }) => {
                 user.role === 'admin' ? 'bg-red-100' : 'bg-blue-100'
               }`}>
                 {user.role === 'admin' ? (
-                  <Shield className={`w-8 h-8 ${user.role === 'admin' ? 'text-red-600' : 'text-blue-600'}`} />
+                  <Shield className="w-8 h-8 text-red-600" />
                 ) : (
                   <User className="w-8 h-8 text-blue-600" />
                 )}
@@ -120,17 +148,12 @@ const Users = ({ users, currentUser, onUpdate }) => {
               )}
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              Qo'shilgan: {new Date(
-    user.createdAt?.seconds
-      ? user.createdAt.seconds * 1000
-      : user.createdAt
-  ).toLocaleDateString('uz-UZ')}
+              Qo'shilgan: {new Date(user.createdAt?.seconds * 1000 || Date.now()).toLocaleDateString('uz-UZ')}
             </p>
           </div>
         ))}
       </div>
 
-      {/* Yangi foydalanuvchi modali */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
@@ -138,9 +161,7 @@ const Users = ({ users, currentUser, onUpdate }) => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  To'liq ism *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">To'liq ism *</label>
                 <input
                   type="text"
                   placeholder="Ism Familiya"
@@ -151,9 +172,7 @@ const Users = ({ users, currentUser, onUpdate }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Login *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Login *</label>
                 <input
                   type="text"
                   placeholder="username"
@@ -164,9 +183,7 @@ const Users = ({ users, currentUser, onUpdate }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Parol *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Parol *</label>
                 <input
                   type="password"
                   placeholder="Kamida 6 ta belgi"
@@ -177,9 +194,7 @@ const Users = ({ users, currentUser, onUpdate }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Rol
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Rol</label>
                 <select
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
@@ -208,9 +223,10 @@ const Users = ({ users, currentUser, onUpdate }) => {
               </button>
               <button
                 onClick={addUser}
-                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 font-medium"
+                disabled={saving}
+                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 font-medium disabled:opacity-50"
               >
-                Qo'shish
+                {saving ? 'Saqlanmoqda...' : 'Qo\'shish'}
               </button>
             </div>
           </div>

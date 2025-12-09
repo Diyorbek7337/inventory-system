@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { PackageMinus, Search, User } from 'lucide-react';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'react-toastify';
 
-const Outcome = ({ products, onUpdate }) => {
+const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [paidAmount, setPaidAmount] = useState('');
-  const [paymentType, setPaymentType] = useState('to\'liq'); // to'liq, qarz
+  const [paymentType, setPaymentType] = useState('to\'liq');
+  const [saving, setSaving] = useState(false);
 
   const filteredProducts = products.filter(p =>
     (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -23,11 +25,13 @@ const Outcome = ({ products, onUpdate }) => {
         setSelectedItems(selectedItems.map(item =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         ));
+        toast.success(`${product.name} savatga qo'shildi`);
       } else {
-        alert(`Omborda faqat ${product.quantity} dona mavjud!`);
+        toast.warning(`Omborda faqat ${product.quantity} dona mavjud!`);
       }
     } else {
       setSelectedItems([...selectedItems, { ...product, quantity: 1 }]);
+      toast.success(`${product.name} savatga qo'shildi`);
     }
   };
 
@@ -36,7 +40,7 @@ const Outcome = ({ products, onUpdate }) => {
     if (quantity <= 0) {
       setSelectedItems(selectedItems.filter(item => item.id !== id));
     } else if (quantity > product.quantity) {
-      alert(`Omborda faqat ${product.quantity} dona mavjud!`);
+      toast.warning(`Omborda faqat ${product.quantity} dona mavjud!`);
     } else {
       setSelectedItems(selectedItems.map(item =>
         item.id === id ? { ...item, quantity } : item
@@ -46,7 +50,7 @@ const Outcome = ({ products, onUpdate }) => {
 
   const handleSubmit = async () => {
     if (selectedItems.length === 0) {
-      alert('Mahsulot tanlang!');
+      toast.warning('Mahsulot tanlang!');
       return;
     }
 
@@ -55,23 +59,33 @@ const Outcome = ({ products, onUpdate }) => {
     const debt = totalAmount - paid;
 
     if (paymentType === 'qarz' && !customerName.trim()) {
-      alert('Mijoz ismini kiriting!');
+      toast.error('Mijoz ismini kiriting!');
       return;
     }
 
     if (paid > totalAmount) {
-      alert('To\'langan summa umumiy summadan oshib ketdi!');
+      toast.error('To\'langan summa umumiy summadan oshib ketdi!');
       return;
     }
 
+    setSaving(true);
+    const loadingToast = toast.loading('Sotilmoqda...');
+
     try {
+      const saleId = Date.now().toString();
+
       for (const item of selectedItems) {
         const product = products.find(p => p.id === item.id);
+        const newQuantity = product.quantity - item.quantity;
+
         await updateDoc(doc(db, 'products', item.id), {
-          quantity: product.quantity - item.quantity
+          quantity: newQuantity
         });
 
-        await addDoc(collection(db, 'transactions'), {
+        onUpdateProduct({ ...product, quantity: newQuantity });
+
+        const transactionData = {
+          saleId: saleId,
           productId: item.id,
           productName: item.name,
           type: 'chiqim',
@@ -80,22 +94,36 @@ const Outcome = ({ products, onUpdate }) => {
           totalAmount: item.quantity * item.price,
           paidAmount: paymentType === 'to\'liq' ? item.quantity * item.price : (paid / totalAmount) * (item.quantity * item.price),
           debt: paymentType === 'qarz' ? (debt / totalAmount) * (item.quantity * item.price) : 0,
-          customerName: customerName || 'Naqd',
+          customerName: customerName.trim() || 'Naqd',
           paymentType: paymentType,
           date: new Date()
-        });
+        };
+
+        const docRef = await addDoc(collection(db, 'transactions'), transactionData);
+        onAddTransaction({ id: docRef.id, ...transactionData });
       }
 
       setSelectedItems([]);
       setCustomerName('');
       setPaidAmount('');
       setPaymentType('to\'liq');
-      onUpdate();
-      alert('Sotildi!');
+      
+      toast.update(loadingToast, {
+        render: `✅ Sotildi! ${debt > 0 ? `Qarz: ${debt.toLocaleString()} so'm` : ''}`,
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Xato:', error);
-      alert('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
     }
+    setSaving(false);
   };
 
   const totalAmount = selectedItems.reduce((sum, item) => sum + (item.quantity * item.price), 0);
@@ -107,7 +135,6 @@ const Outcome = ({ products, onUpdate }) => {
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Chiqim qilish (Sotish)</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Mahsulotlar ro'yxati */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
@@ -154,9 +181,7 @@ const Outcome = ({ products, onUpdate }) => {
           </div>
         </div>
 
-        {/* Savat va To'lov */}
         <div className="space-y-4">
-          {/* Savat */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Savat</h3>
             
@@ -198,7 +223,6 @@ const Outcome = ({ products, onUpdate }) => {
             </div>
           </div>
 
-          {/* To'lov */}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">To'lov</h3>
 
@@ -281,10 +305,10 @@ const Outcome = ({ products, onUpdate }) => {
 
               <button
                 onClick={handleSubmit}
-                disabled={selectedItems.length === 0}
+                disabled={selectedItems.length === 0 || saving}
                 className="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
-                Sotish
+                {saving ? 'Saqlanmoqda...' : 'Sotish'}
               </button>
             </div>
           </div>

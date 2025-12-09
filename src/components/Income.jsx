@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { PackagePlus, Search, Barcode } from 'lucide-react';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { PackagePlus, Search, FolderPlus, Trash2 } from 'lucide-react';
+import { collection, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'react-toastify';
 
-const Income = ({ products, onUpdate }) => {
+const Income = ({ products, categories, onAddProduct, onUpdateProduct, onAddTransaction, onAddCategory, onDeleteCategory }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showAddCategory, setShowAddCategory] = useState(false);
   const [newProduct, setNewProduct] = useState({
     name: '',
     category: '',
@@ -14,8 +16,8 @@ const Income = ({ products, onUpdate }) => {
     barcode: '',
     quantity: ''
   });
-
-  const categories = ['Elektronika', 'Kiyim', 'Kitoblar', 'Oziq-ovqat', 'Uy-ro\'zg\'or', 'Sport'];
+  const [newCategory, setNewCategory] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const filteredProducts = products.filter(p =>
     p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,6 +33,7 @@ const Income = ({ products, onUpdate }) => {
     } else {
       setSelectedItems([...selectedItems, { ...product, quantity: 1 }]);
     }
+    toast.success(`${product.name} savatga qo'shildi`);
   };
 
   const updateQuantity = (id, quantity) => {
@@ -45,59 +48,140 @@ const Income = ({ products, onUpdate }) => {
 
   const handleSubmit = async () => {
     if (selectedItems.length === 0) {
-      alert('Mahsulot tanlang!');
+      toast.warning('Mahsulot tanlang!');
       return;
     }
+
+    setSaving(true);
+    const loadingToast = toast.loading('Kirim qilinmoqda...');
 
     try {
       for (const item of selectedItems) {
         const product = products.find(p => p.id === item.id);
+        const newQuantity = product.quantity + item.quantity;
+
         await updateDoc(doc(db, 'products', item.id), {
-          quantity: product.quantity + item.quantity
+          quantity: newQuantity
         });
 
-        await addDoc(collection(db, 'transactions'), {
+        onUpdateProduct({ ...product, quantity: newQuantity });
+
+        const transactionData = {
           productId: item.id,
           productName: item.name,
           type: 'kirim',
           quantity: item.quantity,
           price: item.price,
           date: new Date()
-        });
+        };
+
+        const docRef = await addDoc(collection(db, 'transactions'), transactionData);
+        onAddTransaction({ id: docRef.id, ...transactionData });
       }
 
       setSelectedItems([]);
-      onUpdate();
-      alert('Kirim qilindi!');
+      toast.update(loadingToast, {
+        render: '✅ Kirim muvaffaqiyatli qilindi!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Xato:', error);
-      alert('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
     }
+    setSaving(false);
   };
 
   const addNewProduct = async () => {
     if (!newProduct.name || !newProduct.category || !newProduct.price) {
-      alert('Majburiy maydonlarni to\'ldiring!');
+      toast.error('Majburiy maydonlarni to\'ldiring!');
       return;
     }
 
+    setSaving(true);
+    const loadingToast = toast.loading('Mahsulot qo\'shilmoqda...');
+
     try {
-      await addDoc(collection(db, 'products'), {
+      const productData = {
         name: newProduct.name,
         category: newProduct.category,
         price: parseFloat(newProduct.price),
         barcode: newProduct.barcode,
         quantity: parseInt(newProduct.quantity) || 0,
         createdAt: new Date()
-      });
+      };
+
+      const docRef = await addDoc(collection(db, 'products'), productData);
+      onAddProduct({ id: docRef.id, ...productData });
 
       setNewProduct({ name: '', category: '', price: '', barcode: '', quantity: '' });
       setShowAddProduct(false);
-      onUpdate();
-      alert('Mahsulot qo\'shildi!');
+      
+      toast.update(loadingToast, {
+        render: '✅ Mahsulot qo\'shildi!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Xato:', error);
-      alert('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
+    }
+    setSaving(false);
+  };
+
+  const addNewCategory = async () => {
+    if (!newCategory.trim()) {
+      toast.error('Kategoriya nomini kiriting!');
+      return;
+    }
+
+    if (categories.some(c => c.name.toLowerCase() === newCategory.trim().toLowerCase())) {
+      toast.error('Bu kategoriya allaqachon mavjud!');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const categoryData = {
+        name: newCategory.trim(),
+        createdAt: new Date()
+      };
+
+      const docRef = await addDoc(collection(db, 'categories'), categoryData);
+      onAddCategory({ id: docRef.id, ...categoryData });
+
+      setNewCategory('');
+      setShowAddCategory(false);
+      toast.success('✅ Kategoriya qo\'shildi!');
+    } catch (error) {
+      console.error('Xato:', error);
+      toast.error('❌ Xatolik yuz berdi!');
+    }
+    setSaving(false);
+  };
+
+  const removeCategoryHandler = async (categoryId) => {
+    if (window.confirm('Kategoriyani o\'chirmoqchimisiz?')) {
+      try {
+        await deleteDoc(doc(db, 'categories', categoryId));
+        onDeleteCategory(categoryId);
+        toast.success('✅ Kategoriya o\'chirildi!');
+      } catch (error) {
+        console.error('Xato:', error);
+        toast.error('❌ Xatolik yuz berdi!');
+      }
     }
   };
 
@@ -107,16 +191,66 @@ const Income = ({ products, onUpdate }) => {
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Kirim qilish</h2>
-        <button
-          onClick={() => setShowAddProduct(!showAddProduct)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-        >
-          <PackagePlus className="w-5 h-5" />
-          Yangi mahsulot
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddCategory(!showAddCategory)}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <FolderPlus className="w-5 h-5" />
+            Kategoriya
+          </button>
+          <button
+            onClick={() => setShowAddProduct(!showAddProduct)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
+            <PackagePlus className="w-5 h-5" />
+            Mahsulot
+          </button>
+        </div>
       </div>
 
-      {/* Yangi mahsulot qo'shish */}
+      {/* Kategoriya qo'shish */}
+      {showAddCategory && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+          <h3 className="font-bold text-purple-900 mb-3">Yangi kategoriya</h3>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              placeholder="Kategoriya nomi"
+              value={newCategory}
+              onChange={(e) => setNewCategory(e.target.value)}
+              className="flex-1 border rounded-lg px-4 py-2"
+            />
+            <button
+              onClick={addNewCategory}
+              disabled={saving}
+              className="bg-purple-600 text-white rounded-lg px-6 py-2 hover:bg-purple-700 disabled:opacity-50"
+            >
+              {saving ? 'Saqlanmoqda...' : 'Qo\'shish'}
+            </button>
+          </div>
+
+          {/* Kategoriyalar ro'yxati */}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {categories.map(cat => (
+              <div
+                key={cat.id}
+                className="flex items-center gap-2 bg-white border border-purple-200 rounded-lg px-3 py-1"
+              >
+                <span className="text-sm">{cat.name}</span>
+                <button
+                  onClick={() => removeCategoryHandler(cat.id)}
+                  className="text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Mahsulot qo'shish */}
       {showAddProduct && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <h3 className="font-bold text-blue-900 mb-3">Yangi mahsulot qo'shish</h3>
@@ -134,7 +268,7 @@ const Income = ({ products, onUpdate }) => {
               className="border rounded-lg px-4 py-2"
             >
               <option value="">Kategoriya *</option>
-              {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              {categories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
             </select>
             <input
               type="number"
@@ -159,16 +293,16 @@ const Income = ({ products, onUpdate }) => {
             />
             <button
               onClick={addNewProduct}
-              className="bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-700"
+              disabled={saving}
+              className="bg-green-600 text-white rounded-lg px-4 py-2 hover:bg-green-700 disabled:opacity-50"
             >
-              Qo'shish
+              {saving ? 'Saqlanmoqda...' : 'Qo\'shish'}
             </button>
           </div>
         </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Mahsulotlar ro'yxati */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
           <div className="relative mb-4">
             <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
@@ -213,7 +347,6 @@ const Income = ({ products, onUpdate }) => {
           </div>
         </div>
 
-        {/* Savat */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Tanlangan mahsulotlar</h3>
           
@@ -261,10 +394,10 @@ const Income = ({ products, onUpdate }) => {
             </div>
             <button
               onClick={handleSubmit}
-              disabled={selectedItems.length === 0}
+              disabled={selectedItems.length === 0 || saving}
               className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Kirim qilish
+              {saving ? 'Saqlanmoqda...' : 'Kirim qilish'}
             </button>
           </div>
         </div>

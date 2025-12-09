@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, PackagePlus, PackageMinus, Package, BarChart3, Users, LogOut } from 'lucide-react';
+import { Home, PackagePlus, PackageMinus, Package, BarChart3, Users, LogOut, Receipt } from 'lucide-react';
 
 const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout }) => {
   const menuItems = [
@@ -7,6 +7,7 @@ const Sidebar = ({ activeMenu, setActiveMenu, user, onLogout }) => {
     { key: 'income', label: 'Kirim', icon: PackagePlus },
     { key: 'outcome', label: 'Chiqim', icon: PackageMinus },
     { key: 'products', label: 'Mahsulotlar', icon: Package },
+    { key: 'sales', label: 'Savdo cheklari', icon: Receipt },
     { key: 'statistics', label: 'Statistika', icon: BarChart3 },
     { key: 'users', label: 'Foydalanuvchilar', icon: Users },
   ];

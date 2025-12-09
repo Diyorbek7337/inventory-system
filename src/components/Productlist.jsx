@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Search, Trash2, Edit, Package } from 'lucide-react';
 import { deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { toast } from 'react-toastify';
 
-const ProductList = ({ products, onUpdate }) => {
+const ProductList = ({ products, categories, onDeleteProduct, onUpdateProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editingProduct, setEditingProduct] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const categories = ['Barchasi', 'Elektronika', 'Kiyim', 'Kitoblar', 'Oziq-ovqat', 'Uy-ro\'zg\'or', 'Sport'];
+  const allCategories = ['Barchasi', ...categories.map(c => c.name)];
 
   const filteredProducts = products.filter(p => {
     const matchesSearch = p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -19,38 +21,66 @@ const ProductList = ({ products, onUpdate }) => {
 
   const deleteProduct = async (id) => {
     if (window.confirm('Mahsulotni o\'chirmoqchimisiz?')) {
+      const loadingToast = toast.loading('O\'chirilmoqda...');
       try {
         await deleteDoc(doc(db, 'products', id));
-        onUpdate();
-        alert('O\'chirildi!');
+        onDeleteProduct(id);
+        toast.update(loadingToast, {
+          render: '✅ Mahsulot o\'chirildi!',
+          type: 'success',
+          isLoading: false,
+          autoClose: 3000
+        });
       } catch (error) {
         console.error('Xato:', error);
-        alert('Xatolik yuz berdi!');
+        toast.update(loadingToast, {
+          render: '❌ Xatolik yuz berdi!',
+          type: 'error',
+          isLoading: false,
+          autoClose: 3000
+        });
       }
     }
   };
 
   const saveEdit = async () => {
     if (!editingProduct.name || !editingProduct.price) {
-      alert('Majburiy maydonlarni to\'ldiring!');
+      toast.error('Majburiy maydonlarni to\'ldiring!');
       return;
     }
 
+    setSaving(true);
+    const loadingToast = toast.loading('Saqlanmoqda...');
+
     try {
-      await updateDoc(doc(db, 'products', editingProduct.id), {
+      const updatedData = {
         name: editingProduct.name,
         category: editingProduct.category,
         price: parseFloat(editingProduct.price),
         barcode: editingProduct.barcode,
         quantity: parseInt(editingProduct.quantity)
-      });
+      };
+
+      await updateDoc(doc(db, 'products', editingProduct.id), updatedData);
+      onUpdateProduct({ ...editingProduct, ...updatedData });
       setEditingProduct(null);
-      onUpdate();
-      alert('Yangilandi!');
+      
+      toast.update(loadingToast, {
+        render: '✅ Mahsulot yangilandi!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
     } catch (error) {
       console.error('Xato:', error);
-      alert('Xatolik yuz berdi!');
+      toast.update(loadingToast, {
+        render: '❌ Xatolik yuz berdi!',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
     }
+    setSaving(false);
   };
 
   return (
@@ -63,7 +93,6 @@ const ProductList = ({ products, onUpdate }) => {
         </div>
       </div>
 
-      {/* Filtrlar */}
       <div className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
@@ -82,43 +111,26 @@ const ProductList = ({ products, onUpdate }) => {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
           >
-            {categories.map(cat => (
+            {allCategories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Mahsulotlar jadvali */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  #
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mahsulot
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Kategoriya
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Barcode
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Narx
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Miqdor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Jami qiymat
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amallar
-                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mahsulot</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kategoriya</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barcode</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Narx</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Miqdor</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jami qiymat</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amallar</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -131,9 +143,7 @@ const ProductList = ({ products, onUpdate }) => {
               ) : (
                 filteredProducts.map((product, index) => (
                   <tr key={product.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {index + 1}
-                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{product.name}</div>
                     </td>
@@ -184,7 +194,6 @@ const ProductList = ({ products, onUpdate }) => {
         </div>
       </div>
 
-      {/* Tahrirlash modali */}
       {editingProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-2xl max-w-md w-full p-6">
@@ -208,8 +217,8 @@ const ProductList = ({ products, onUpdate }) => {
                   onChange={(e) => setEditingProduct({...editingProduct, category: e.target.value})}
                   className="w-full border rounded-lg px-4 py-2"
                 >
-                  {categories.filter(c => c !== 'Barchasi').map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -254,9 +263,10 @@ const ProductList = ({ products, onUpdate }) => {
               </button>
               <button
                 onClick={saveEdit}
-                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700"
+                disabled={saving}
+                className="flex-1 bg-blue-600 text-white rounded-lg px-4 py-2 hover:bg-blue-700 disabled:opacity-50"
               >
-                Saqlash
+                {saving ? 'Saqlanmoqda...' : 'Saqlash'}
               </button>
             </div>
           </div>
