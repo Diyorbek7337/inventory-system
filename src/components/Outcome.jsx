@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PackageMinus, Search, User } from 'lucide-react';
+import { PackageMinus, Search, User, Scan, Camera } from 'lucide-react';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'react-toastify';
@@ -11,6 +11,7 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
   const [paidAmount, setPaidAmount] = useState('');
   const [paymentType, setPaymentType] = useState('to\'liq');
   const [saving, setSaving] = useState(false);
+   const [showScanner, setShowScanner] = useState(false);                                                                                                                                                                       
 
   const filteredProducts = products.filter(p =>
     (p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -48,6 +49,17 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
     }
   };
 
+   const handleBarcodeScan = (barcode) => {
+    setSearchTerm(barcode);
+    
+    const product = products.find(p => p.barcode === barcode);
+    if (product) {
+      addToCart(product);
+      toast.success(`${product.name} topildi va savatga qo'shildi!`);
+    } else {
+      toast.warning(`Barcode: ${barcode} - Mahsulot topilmadi!`);
+    }
+  };
   const handleSubmit = async () => {
     if (selectedItems.length === 0) {
       toast.warning('Mahsulot tanlang!');
@@ -132,30 +144,49 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Chiqim qilish (Sotish)</h2>
+      <h2 className="mb-6 text-2xl font-bold text-gray-800">Chiqim qilish (Sotish)</h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-lg shadow p-6">
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Mahsulot nomi yoki barcode..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="p-6 bg-white rounded-lg shadow lg:col-span-2">
+         <div className="flex gap-2 mb-4">
+  {/* USB Scanner Input */}
+  <div className="relative flex-1">
+    <Scan className="absolute w-5 h-5 text-gray-400 left-3 top-3" />
+    <input
+      type="text"
+      placeholder="USB barcode scanner yoki qidiruv..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+      onKeyPress={(e) => {
+        if (e.key === 'Enter' && searchTerm) {
+          const product = products.find(p => p.barcode === searchTerm);
+          if (product) {
+            handleBarcodeScan(searchTerm);
+          }
+        }
+      }}
+      className="w-full py-2 pl-10 pr-4 border rounded-lg focus:ring-2 focus:ring-blue-500"
+    />
+  </div>
+  {/* Kamera Scanner */}
+  <button
+    onClick={() => setShowScanner(true)}
+    className="flex items-center gap-2 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
+  >
+    <Camera className="w-5 h-5" />
+    Kamera
+  </button>
+</div>
 
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          <div className="space-y-2 overflow-y-auto max-h-96">
             {filteredProducts.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">Mahsulot topilmadi</p>
+              <p className="py-8 text-center text-gray-500">Mahsulot topilmadi</p>
             ) : (
               filteredProducts.map(product => (
                 <div
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  className="flex justify-between items-center p-4 border rounded-lg hover:bg-red-50 cursor-pointer transition"
+                  className="flex items-center justify-between p-4 transition border rounded-lg cursor-pointer hover:bg-red-50"
                 >
                   <div>
                     <p className="font-medium text-gray-800">{product.name}</p>
@@ -182,16 +213,16 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
         </div>
 
         <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Savat</h3>
+          <div className="p-6 bg-white rounded-lg shadow">
+            <h3 className="mb-4 text-lg font-bold text-gray-800">Savat</h3>
             
-            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+            <div className="mb-4 space-y-2 overflow-y-auto max-h-48">
               {selectedItems.length === 0 ? (
-                <p className="text-center text-gray-500 py-8 text-sm">Bo'sh</p>
+                <p className="py-8 text-sm text-center text-gray-500">Bo'sh</p>
               ) : (
                 selectedItems.map(item => (
-                  <div key={item.id} className="border rounded-lg p-3">
-                    <p className="font-medium text-sm text-gray-800 mb-2">{item.name}</p>
+                  <div key={item.id} className="p-3 border rounded-lg">
+                    <p className="mb-2 text-sm font-medium text-gray-800">{item.name}</p>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
@@ -204,7 +235,7 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
                           type="number"
                           value={item.quantity}
                           onChange={(e) => updateQuantity(item.id, parseInt(e.target.value) || 0)}
-                          className="w-16 text-center border rounded px-2 py-1"
+                          className="w-16 px-2 py-1 text-center border rounded"
                         />
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -223,12 +254,12 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">To'lov</h3>
+          <div className="p-6 bg-white rounded-lg shadow">
+            <h3 className="mb-4 text-lg font-bold text-gray-800">To'lov</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">To'lov turi</label>
+                <label className="block mb-2 text-sm font-medium text-gray-700">To'lov turi</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -261,32 +292,32 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
 
               {paymentType === 'qarz' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Mijoz ismi</label>
+                  <label className="block mb-2 text-sm font-medium text-gray-700">Mijoz ismi</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
+                    <User className="absolute w-5 h-5 text-gray-400 left-3 top-3" />
                     <input
                       type="text"
                       placeholder="Ism va familiya"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                      className="w-full py-2 pl-10 pr-4 border rounded-lg"
                     />
                   </div>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">To'langan summa</label>
+                <label className="block mb-2 text-sm font-medium text-gray-700">To'langan summa</label>
                 <input
                   type="number"
                   placeholder="0"
                   value={paidAmount}
                   onChange={(e) => setPaidAmount(e.target.value)}
-                  className="w-full border rounded-lg px-4 py-2"
+                  className="w-full px-4 py-2 border rounded-lg"
                 />
               </div>
 
-              <div className="border-t pt-4 space-y-2">
+              <div className="pt-4 space-y-2 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Jami:</span>
                   <span className="font-bold">{totalAmount.toLocaleString()} so'm</span>
@@ -306,7 +337,7 @@ const Outcome = ({ products, onUpdateProduct, onAddTransaction }) => {
               <button
                 onClick={handleSubmit}
                 disabled={selectedItems.length === 0 || saving}
-                className="w-full bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="w-full py-3 font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saqlanmoqda...' : 'Sotish'}
               </button>
