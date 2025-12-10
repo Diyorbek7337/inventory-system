@@ -23,6 +23,7 @@ const ProductList = ({ products, categories, onDeleteProduct, onUpdateProduct, o
     return matchesSearch && matchesCategory;
   });
 
+
   // Barcode scan qilganda
   const handleBarcodeScan = (barcode) => {
     setSearchTerm(barcode);
@@ -385,6 +386,7 @@ const ProductList = ({ products, categories, onDeleteProduct, onUpdateProduct, o
               )}
             </tbody>
           </table>
+          {/* {totalSum.toLocaleString()} so'm */}
         </div>
       </div>
 
